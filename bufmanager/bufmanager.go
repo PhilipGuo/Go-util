@@ -29,7 +29,7 @@ func NewBufManager() *Bufmanager {
 }
 
 // 写入数据
-func (b *Bufmanager) Write(data []byte) bool {
+func (b *Bufmanager) WriteData(data []byte) bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -54,7 +54,7 @@ func (b *Bufmanager) Write(data []byte) bool {
 		}
 	} else {
 		if int(b.readpos-b.writepos) < datalen {
-			panic("data to write is too large")
+			// panic("data to write is too large")
 			return false
 		}
 
@@ -65,7 +65,7 @@ func (b *Bufmanager) Write(data []byte) bool {
 }
 
 // 读取数据
-func (b *Bufmanager) Read(size uint16) ([]byte, bool) {
+func (b *Bufmanager) ReadData(size uint16) ([]byte, bool) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	var data []byte = make([]byte, size)
@@ -97,6 +97,70 @@ func (b *Bufmanager) Read(size uint16) ([]byte, bool) {
 			return data, true
 		}
 	}
+}
+
+// 预读取数据
+func (b *Bufmanager) ReadDataPrep(size uint16) ([]byte, bool) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	var data []byte = make([]byte, size)
+
+	if b.writepos >= b.readpos {
+		if size > (b.writepos - b.readpos) {
+			//panic("size want to read is overflow")
+			return nil, false
+		}
+
+		copy(data[:size], b.bufsc[b.readpos:(b.readpos+size)])
+		// b.readpos += size
+		return data, true
+	} else {
+		if size > (bufsize - b.readpos + b.writepos) {
+			//panic("size want to read is overflow")
+			return nil, false
+		}
+
+		if size <= (bufsize - b.readpos) {
+
+			copy(data[:size], b.bufsc[b.readpos:(b.readpos+size)])
+			// b.readpos += size
+			return data, true
+		} else {
+			copy(data[:(bufsize-b.readpos)], b.bufsc[b.readpos:])
+			// b.readpos = size + b.readpos - bufsize
+			copy(data[(bufsize-b.readpos):size], b.bufsc[:b.readpos])
+			return data, true
+		}
+	}
+}
+
+// 清数据
+func (b *Bufmanager) ClearData(size uint16) bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.writepos >= b.readpos {
+		if size > (b.writepos - b.readpos) {
+			b.readpos = b.writepos
+		} else {
+			b.readpos += size
+		}
+	} else {
+		if size > (bufsize - b.readpos + b.writepos) {
+			b.readpos = b.writepos
+		} else {
+			if size <= (bufsize - b.readpos) {
+				b.readpos += size
+			} else {
+				b.readpos = size + b.readpos - bufsize
+			}
+		}
+	}
+	return false
+}
+
+// 读取数据
+func (b *Bufmanager) Read(p []byte) (int, error) {
+	return 0, nil
 }
 
 // 可用数据量
