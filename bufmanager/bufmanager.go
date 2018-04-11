@@ -156,6 +156,7 @@ func (b *Bufmanager) ClearData(size uint16) bool {
 		}
 	}
 	return false
+
 }
 
 // 读取数据
